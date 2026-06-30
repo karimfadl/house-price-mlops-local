@@ -3,19 +3,21 @@ kind: Ingress
 metadata:
   name: house-price-ingress
   namespace: house-price
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
     - http:
         paths:
-          - path: /app
+          - path: /app(/|$)(.*)
             pathType: Prefix
             backend:
               service:
                 name: streamlit
                 port:
                   number: 8501
-          - path: /api
+          - path: /api(/|$)(.*)
             pathType: Prefix
             backend:
               service:

@@ -5,8 +5,8 @@
 namespace: house-price
 
 api:
-  repository: registry.kube-system.svc.cluster.local:5000/house-price-api
-  tag: latest
+  repository: $REGISTRY_IP:5000/house-price-api
+  tag: v1
   replicas: 2
   resources:
     requests:
@@ -17,8 +17,8 @@ api:
       memory: 512Mi
 
 streamlit:
-  repository: registry.kube-system.svc.cluster.local:5000/house-price-streamlit
-  tag: latest
+  repository: $REGISTRY_IP:5000/house-price-streamlit
+  tag: v1
   replicas: 1
   resources:
     requests:
