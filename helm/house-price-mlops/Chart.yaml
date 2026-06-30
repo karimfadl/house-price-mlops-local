@@ -1,0 +1,6 @@
+apiVersion: v2
+name: house-price-mlops
+description: House price prediction — API and Streamlit frontend
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

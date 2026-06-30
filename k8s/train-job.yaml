@@ -1,0 +1,38 @@
+# Kubernetes Job — trains the model inside the cluster.
+# Uses cluster-internal DNS for MLflow and MinIO.
+#
+# If quality gate fails (MAE > $30,000), the Job exits with error code 1
+# and Kubernetes marks it Failed — GitHub Actions stops the pipeline.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: train
+  namespace: house-price
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: train
+          image: REGISTRY_HOST/house-price-trainer:IMAGE_TAG
+          command: ["python", "train.py"]
+          env:
+            - name: MLFLOW_TRACKING_URI
+              value: http://mlflow.house-price.svc.cluster.local:5000
+            - name: MLFLOW_S3_ENDPOINT_URL
+              value: http://minio.minio.svc.cluster.local:9000
+            - name: AWS_ACCESS_KEY_ID
+              value: minioadmin
+            - name: AWS_SECRET_ACCESS_KEY
+              value: minioadmin
+            - name: MINIO_BUCKET
+              value: house-price-models
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 1Gi

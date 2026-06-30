@@ -1,0 +1,35 @@
+# kind cluster configuration with fixed port mappings.
+#
+# This is the EXACT config confirmed working — no MetalLB, no LoadBalancer,
+# no Docker Desktop built-in Kubernetes. Plain kind CLI with explicit
+# Docker port publishing.
+#
+# Create the cluster:
+#   kind create cluster --name house-price --config=kind-cluster-config.yaml
+#
+# Ports:
+#   localhost:15000 -> NodePort 30500  (Docker registry)
+#   localhost:19000 -> NodePort 30900  (MinIO S3 API)
+#   localhost:19001 -> NodePort 30901  (MinIO Console)
+#   localhost:18080 -> NodePort 30080  (Nginx Ingress)
+#
+# NOTE: port 5000 is avoided because macOS reserves it for AirPlay Receiver
+# (ControlCenter process) — confirmed via `lsof -i :5000`.
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30500
+        hostPort: 15000
+        protocol: TCP
+      - containerPort: 30900
+        hostPort: 19000
+        protocol: TCP
+      - containerPort: 30901
+        hostPort: 19001
+        protocol: TCP
+      - containerPort: 30080
+        hostPort: 18080
+        protocol: TCP

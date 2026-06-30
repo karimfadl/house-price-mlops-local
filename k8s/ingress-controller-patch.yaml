@@ -1,0 +1,30 @@
+# Nginx Ingress Controller configured for kind.
+# Exposed as NodePort 30080 -> localhost:18080 (mapped in kind-cluster-config.yaml)
+#
+# Install the base controller first (kind-specific manifest, already configures
+# hostPort 80/443 on the node — we override with our own NodePort instead):
+#   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
+#   kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=120s
+#
+# Then patch the Service to use our fixed NodePort:
+#   kubectl apply -f k8s/ingress-controller-patch.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/component: controller
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+      nodePort: 30080
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/component: controller

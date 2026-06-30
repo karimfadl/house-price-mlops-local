@@ -1,0 +1,38 @@
+# k8s/monitoring.yaml
+#
+# Prometheus + Grafana — installed via Helm, routed through the SAME
+# Nginx Ingress already running on localhost:18080. No new host ports needed.
+#
+# Install with:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring --create-namespace \
+#     --values helm/monitoring-values.yaml
+#
+# Then apply this Ingress rule so Grafana is reachable at:
+#   http://localhost:18080/grafana
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: monitoring
+  # NOTE: no rewrite-target annotation here on purpose.
+  # Grafana's serve_from_sub_path:true expects to RECEIVE the full
+  # /grafana/... path. Stripping it (rewrite-target: /$2) caused an
+  # infinite redirect loop: Nginx strips /grafana -> Grafana redirects
+  # back to /grafana/login -> Nginx strips it again, forever. Confirmed
+  # by direct testing (curl -vL hit "Maximum (50) redirects followed").
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: kube-prometheus-stack-grafana
+                port:
+                  number: 80

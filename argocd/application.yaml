@@ -1,0 +1,28 @@
+# ArgoCD Application — watches helm/house-price-mlops/ in your Git repo.
+# Update repoURL to your GitHub repo before applying.
+# ArgoCD itself is exposed via the same Nginx Ingress at http://localhost:18080/argocd
+# once you add the argocd-ingress rule (see README for the full command).
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: house-price-mlops
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/house-price-mlops
+    targetRevision: HEAD
+    path: helm/house-price-mlops
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: house-price
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,100 @@
+name: MLOps Pipeline
+
+# Runs on a SELF-HOSTED runner registered on your own Mac.
+# GitHub-hosted runners cannot reach localhost:15000 / localhost:19000 —
+# they're cloud machines with no route to your laptop. A self-hosted
+# runner is just a process on your Mac that polls GitHub for jobs, so it
+# has the same localhost access you do in a terminal.
+#
+# Setup (one time):
+#   1. Go to your repo on GitHub -> Settings -> Actions -> Runners -> New self-hosted runner
+#   2. Follow the macOS instructions GitHub gives you (download, configure, ./run.sh)
+#   3. Leave that runner process running in a terminal whenever you want CI to fire
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Lint and Test
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format check
+        run: black --check .
+
+      - name: Test
+        run: pytest tests/ -v --tb=short
+
+  train:
+    name: Generate Data and Train Inside the Cluster
+    runs-on: self-hosted
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push trainer image
+        run: |
+          docker build -f Dockerfile.trainer -t localhost:15000/house-price-trainer:${{ github.sha }} .
+          docker push localhost:15000/house-price-trainer:${{ github.sha }}
+
+      - name: Run generate-data Job
+        run: |
+          kubectl delete job generate-data -n house-price --ignore-not-found
+          sed "s|REGISTRY_HOST|registry.kube-system.svc.cluster.local:5000|g; s/IMAGE_TAG/${{ github.sha }}/g" \
+            k8s/generate-data-job.yaml | kubectl apply -f -
+          kubectl wait job/generate-data -n house-price --for=condition=complete --timeout=120s
+
+      - name: Run train Job
+        run: |
+          kubectl delete job train -n house-price --ignore-not-found
+          sed "s|REGISTRY_HOST|registry.kube-system.svc.cluster.local:5000|g; s/IMAGE_TAG/${{ github.sha }}/g" \
+            k8s/train-job.yaml | kubectl apply -f -
+          kubectl wait job/train -n house-price --for=condition=complete --timeout=600s
+
+      - name: Print train logs
+        if: always()
+        run: kubectl logs job/train -n house-price
+
+  build:
+    name: Build App Images and Trigger ArgoCD
+    runs-on: self-hosted
+    needs: train
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push API image
+        run: |
+          docker build -t localhost:15000/house-price-api:${{ github.sha }} .
+          docker push localhost:15000/house-price-api:${{ github.sha }}
+
+      - name: Build and push Streamlit image
+        run: |
+          docker build -f Dockerfile.streamlit -t localhost:15000/house-price-streamlit:${{ github.sha }} .
+          docker push localhost:15000/house-price-streamlit:${{ github.sha }}
+
+      - name: Update image tags in Helm values.yaml
+        run: |
+          sed -i '' "s|  tag: .*|  tag: ${{ github.sha }}|g" helm/house-price-mlops/values.yaml
+
+      - name: Commit updated values.yaml
+        # ArgoCD polls the repo every 3 minutes and picks this commit up automatically
+        run: |
+          git config user.email "ci@local"
+          git config user.name  "Self-Hosted Runner"
+          git add helm/house-price-mlops/values.yaml
+          git commit -m "ci: deploy ${{ github.sha }} [skip ci]" || echo "Nothing to commit"
+          git push

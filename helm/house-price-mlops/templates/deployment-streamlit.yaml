@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streamlit
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.streamlit.replicas }}
+  selector:
+    matchLabels:
+      app: streamlit
+  template:
+    metadata:
+      labels:
+        app: streamlit
+    spec:
+      containers:
+        - name: streamlit
+          image: "{{ .Values.streamlit.repository }}:{{ .Values.streamlit.tag }}"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8501
+          env:
+            - name: API_URL
+              value: http://house-price-api
+          resources:
+            {{- toYaml .Values.streamlit.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: streamlit
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: streamlit
+  ports:
+    - port: 8501
+      targetPort: 8501
+  type: ClusterIP

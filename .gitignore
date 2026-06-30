@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+data/house_prices.csv
+models/house_price_model.pkl
+mlflow.db
+mlflow-artifacts/
+mlruns/
+.DS_Store
+.idea/
+.vscode/
