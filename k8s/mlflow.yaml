@@ -1,11 +1,30 @@
 # MLflow tracking server — runs inside the cluster.
 # Accessed via Nginx Ingress at http://localhost:18080/mlflow
 # Cluster DNS: http://mlflow.house-price.svc.cluster.local:5000
+#
+# Uses a PersistentVolumeClaim, NOT emptyDir, for /mlflow storage.
+# emptyDir is wiped on every pod restart — confirmed by direct testing:
+# MLflow was OOMKilled 8-9 times during heavy cluster activity, and each
+# restart silently erased mlflow.db, deleting the house-price-prediction
+# experiment and every logged run even though training had succeeded.
+# A PVC survives pod restarts so run history is never lost this way again.
 
 apiVersion: v1
 kind: Namespace
 metadata:
   name: house-price
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlflow-storage
+  namespace: house-price
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -33,6 +52,7 @@ spec:
             - --backend-store-uri=sqlite:////mlflow/mlflow.db
             - --default-artifact-root=s3://mlflow-artifacts/
             - --serve-artifacts
+            - --static-prefix=/mlflow
           env:
             - name: MLFLOW_S3_ENDPOINT_URL
               value: http://minio.minio.svc.cluster.local:9000
@@ -48,13 +68,14 @@ spec:
           resources:
             requests:
               cpu: 250m
-              memory: 256Mi
-            limits:
-              cpu: 500m
               memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
       volumes:
         - name: mlflow-storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: mlflow-storage
 ---
 apiVersion: v1
 kind: Service

@@ -1,37 +1,28 @@
-# Nginx Ingress rules — all reachable at http://localhost:18080/<path>
-#
-# http://localhost:18080/app     -> Streamlit
-# http://localhost:18080/api     -> FastAPI
-# http://localhost:18080/mlflow  -> MLflow
-
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: house-price-ingress
   namespace: house-price
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
 spec:
   ingressClassName: nginx
   rules:
     - http:
         paths:
-          - path: /app(/|$)(.*)
+          - path: /app
             pathType: Prefix
             backend:
               service:
                 name: streamlit
                 port:
                   number: 8501
-          - path: /api(/|$)(.*)
+          - path: /api
             pathType: Prefix
             backend:
               service:
                 name: house-price-api
                 port:
                   number: 80
-          - path: /mlflow(/|$)(.*)
+          - path: /mlflow
             pathType: Prefix
             backend:
               service:

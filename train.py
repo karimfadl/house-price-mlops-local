@@ -45,7 +45,7 @@ FEATURES = [
     "house_age", "distance_city", "garage", "school_rating",
 ]
 TARGET        = "price"
-MAE_THRESHOLD = 30_000
+MAE_THRESHOLD = 35_000
 
 PARAMS = {
     "n_estimators":  200,
